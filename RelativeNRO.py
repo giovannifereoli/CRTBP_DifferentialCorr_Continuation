@@ -146,7 +146,7 @@ l_star = 3.844 * 1e8  # Meters
 t_star = 375200  # Seconds
 
 # Initialization
-# x0t_state = np.array([1.0221, 0, -0.1821, 0, -0.1033, 0])  # 9:2 NRO, already corrected
+# x0t_state = np.array([1.0221, 0, -0.1821, 0, -0.1033, 0]) not corrected 9:2 NRO, below corrected.
 x0t_state = np.array(
     [
         1.02206694e00,
@@ -155,16 +155,6 @@ x0t_state = np.array(
         -6.66065965e-07,
         -1.03353155e-01,
         2.53475103e-06,
-    ]
-)
-x0r_state = np.array(  # 600ish meters
-    [
-        1.62951874e-11,
-        1.62263261e-06,
-        -6.20702933e-11,
-        2.07476683e-06,
-        -5.50569035e-11,
-        -7.90303573e-06,
     ]
 )
 x0r_state_small = np.array(  # 200 meters

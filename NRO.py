@@ -166,7 +166,7 @@ while np.absolute(xxm[3]) > 1e-4 or np.absolute(xxm[5]) > 1e-4:
 x0_corr = np.concatenate((np.add(x0_state, dx0), x0_stm))
 sol = solve_ivp(
     stm_crtbp,
-    (0, 1.1 * np.pi / 2666688),
+    (0, 1.1 * np.pi),
     x0_corr,
     method="RK45",
     rtol=2.220446049250313e-14,
@@ -204,7 +204,7 @@ x0_rel = x0_corr[0:6] - xx_corr[-1, 0:6]
 rho0 = np.linalg.norm(x0_rel[0:2]) * l_star
 print(rho0)
 print(x0_corr[0:6])
-print(xx_corr[-1, 0:6])  # OSS: new target initial condition, forward of 200m!!
+print(xx_corr[-1, 0:6])  # OSS: new target initial condition, forward!!
 print(x0_rel)
 
 '''
