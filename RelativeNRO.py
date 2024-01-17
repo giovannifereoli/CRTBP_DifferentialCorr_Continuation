@@ -1,9 +1,12 @@
 import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import matplotlib.ticker as mtick
+
 # from numba import jit
 # @jit(nopython=False, forceobj=True)
+
 
 # Functions needed
 def rel_crtbp(t, x, mu=0.012150583925359):
@@ -113,14 +116,53 @@ def rel_crtbp2(t, x, mu=0.012150583925359):
     r1c_norm = np.sqrt((xc + mu) ** 2 + yc**2 + zc**2)
     r2c_norm = np.sqrt((xc + mu - 1) ** 2 + yc**2 + zc**2)
 
+    # Brfbp additional values and components
+    ms = 3.28900541 * 1e5
+    ws = -9.25195985 * 1e-1
+    rho = 3.88811143 * 1e2
+    rho_vec = rho * np.array([np.cos(ws * t), np.sin(ws * t), 0])
+    r3t = np.sqrt(
+        (xt - rho * np.cos(ws * t)) ** 2 + (yt - rho * np.sin(ws * t)) ** 2 + zt**2
+    )
+    dxdt4t = (
+        -ms * (xt - rho * np.cos(ws * t)) / r3t**3 - ms * np.cos(ws * t) / rho**2
+    )
+    dxdt5t = (
+        -ms * (yt - rho * np.sin(ws * t)) / r3t**3 - ms * np.sin(ws * t) / rho**2
+    )
+    dxdt6t = -ms * zt / r3t**3
+    r3c = np.sqrt(
+        (xc - rho * np.cos(ws * t)) ** 2 + (yc - rho * np.sin(ws * t)) ** 2 + zc**2
+    )
+    dxdt4c = (
+        -ms * (xc - rho * np.cos(ws * t)) / r3c**3 - ms * np.cos(ws * t) / rho**2
+    )
+    dxdt5c = (
+        -ms * (yc - rho * np.sin(ws * t)) / r3c**3 - ms * np.sin(ws * t) / rho**2
+    )
+    dxdt6c = -ms * zc / r3c**3
+
+    # SRP additional values and components
+    P = 4.56 * 1e-6 / (m_star * l_star / t_star**2) * l_star**2  # OSS: N x m^-2
+    Cr = 1
+    A = 1 / l_star**2
+    m = 21000 / m_star
+    dist_coeff = 1
+    a_srp = -(Cr * A * P * dist_coeff / m) * rho_vec
+
     dxdt[0:3] = [xtdot, ytdot, ztdot]
     dxdt[3:6] = [
         2 * ytdot
         + xt
         - (1 - mu) * (xt + mu) / r1t_norm**3
-        - mu * (xt + mu - 1) / r2t_norm**3,
-        -2 * xtdot + yt - (1 - mu) * yt / r1t_norm**3 - mu * yt / r2t_norm**3,
-        -(1 - mu) * zt / r1t_norm**3 - mu * zt / r2t_norm**3,
+        - mu * (xt + mu - 1) / r2t_norm**3
+        + dxdt4t,
+        -2 * xtdot
+        + yt
+        - (1 - mu) * yt / r1t_norm**3
+        - mu * yt / r2t_norm**3
+        + dxdt5t,
+        -(1 - mu) * zt / r1t_norm**3 - mu * zt / r2t_norm**3 + dxdt6t,
     ]
 
     dxdt[6:9] = np.subtract([xcdot, ycdot, zcdot], dxdt[0:3])
@@ -129,9 +171,19 @@ def rel_crtbp2(t, x, mu=0.012150583925359):
             2 * ycdot
             + xc
             - (1 - mu) * (xc + mu) / r1c_norm**3
-            - mu * (xc + mu - 1) / r2c_norm**3,
-            -2 * xcdot + yc - (1 - mu) * yc / r1c_norm**3 - mu * yc / r2c_norm**3,
-            -(1 - mu) * zc / r1c_norm**3 - mu * zc / r2c_norm**3,
+            - mu * (xc + mu - 1) / r2c_norm**3
+            + dxdt4c
+            + a_srp[0],
+            -2 * xcdot
+            + yc
+            - (1 - mu) * yc / r1c_norm**3
+            - mu * yc / r2c_norm**3
+            + dxdt5c
+            + a_srp[1],
+            -(1 - mu) * zc / r1c_norm**3
+            - mu * zc / r2c_norm**3
+            + a_srp[2]
+            + dxdt6c,
         ],
         dxdt[3:6],
     )
@@ -146,35 +198,34 @@ l_star = 3.844 * 1e8  # Meters
 t_star = 375200  # Seconds
 
 # Initialization
-# x0t_state = np.array([1.0221, 0, -0.1821, 0, -0.1033, 0]) not corrected 9:2 NRO, below corrected.
 x0t_state = np.array(
     [
         1.02206694e00,
-        -5.20646335e-07,
+        -5.25240280e-07,
         -1.82100000e-01,
-        -6.66065965e-07,
+        -6.71943026e-07,
         -1.03353155e-01,
-        2.53475103e-06,
+        2.55711651e-06,
     ]
-)
-x0r_state_small = np.array(  # 200 meters
+)  # 9:2 NRO - 200m after apolune, already corrected, rt = 399069639.7170633, vt = 105.88740083894766
+x0r_state = np.array(
     [
-        1.67732495e-12,
-        5.20646335e-07,
-        -6.38444853e-12,
-        6.66065965e-07,
-        -5.66750813e-12,
-        -2.53475103e-06,
+        1.70730097e-12,
+        5.25240280e-07,
+        -6.49763576e-12,
+        6.71943026e-07,
+        -5.76798331e-12,
+        -2.55711651e-06,
     ]
 )
-x0 = np.concatenate((x0t_state, x0r_state_small))
+x0 = np.concatenate((x0t_state, x0r_state)) # CIAO
 
 # Integration
 sol = solve_ivp(
     rel_crtbp,
     (0, np.pi),
     x0,
-    "RK45",
+    "LSODA",
     rtol=2.220446049250313e-14,
     atol=2.220446049250313e-14,
 )
@@ -185,7 +236,7 @@ xr_sol = x_sol[:, 6:12]
 
 # Approach Corridor
 rad_kso = 200
-ang_corr = np.deg2rad(10)
+ang_corr = np.deg2rad(20)
 rad_entry = np.tan(ang_corr) * rad_kso
 x_cone, y_cone = np.mgrid[-rad_entry:rad_entry:1000j, -rad_entry:rad_entry:1000j]
 x_cone = x_cone / l_star
@@ -203,23 +254,68 @@ z_sph1 = np.sqrt(z_sph1_sq)
 z_sph2 = -z_sph1
 
 # Plot Target
+plt.figure(10)
+ax = plt.axes(projection="3d")
+ax.plot3D(
+    xt_sol[:, 0],
+    xt_sol[:, 1],
+    xt_sol[:, 2],
+    "b",
+    linewidth=2,
+)
+ax.plot3D((1 - mu), 0, 0, "ko", markersize=5)
+ax.legend(["Trajectory", "Moon"], loc="upper right")
+ax.set_xlabel("$x$ [DU]", labelpad=-1)
+ax.set_ylabel("$y$ [DU]")
+ax.zaxis.set_rotate_label(False)
+ax.set_zlabel("$z$ [DU]", rotation=90, labelpad=30)
+plt.locator_params(axis="x", nbins=4)
+plt.locator_params(axis="y", nbins=4)
+plt.locator_params(axis="z", nbins=4)
+plt.tick_params(axis="z", which="major", pad=10)
+# plt.rc('text', usetex=True)
+# plt.rc('font', family='serif')
+ax.set_aspect("equal", "box")
+ax.set_xticks([1.00])
+ax.xaxis.pane.set_edgecolor("black")
+ax.yaxis.pane.set_edgecolor("black")
+ax.zaxis.pane.set_edgecolor("black")
+ax.xaxis.pane.fill = False
+ax.yaxis.pane.fill = False
+ax.zaxis.pane.fill = False
+ax.view_init(elev=20, azim=40)
+plt.show(block=False)
+plt.savefig("Halo92a.pdf", format="pdf")
+
 plt.figure(1)
 ax = plt.axes(projection="3d")
-ax.plot3D(xt_sol[:, 0], xt_sol[:, 1], xt_sol[:, 2], "b", linewidth=2)
-ax.plot3D(1 - mu, 0, 0, "ko", markersize=5)
-ax.plot3D(xt_sol[0, 0], xt_sol[0, 1], xt_sol[0, 2], "go", markersize=5)
 ax.plot3D(
-    xt_sol[0, 0] + xr_sol[0, 0],
-    xt_sol[0, 1] + xr_sol[0, 1],
-    xt_sol[0, 2] + xr_sol[0, 2],
-    "ro",
+    xt_sol[:, 0],
+    xt_sol[:, 1],
+    xt_sol[:, 2],
+    "b",
+    linewidth=2,
+)
+ax.plot3D((1 - mu), 0, 0, "ko", markersize=5)
+ax.plot3D(
+    xt_sol[0, 0],
+    xt_sol[0, 1],
+    xt_sol[0, 2],
+    "go",
+    markersize=5,
+)
+ax.plot3D(
+    (xt_sol[0, 0] + xr_sol[0, 0]),
+    (xt_sol[0, 1] + xr_sol[0, 1]),
+    (xt_sol[0, 2] + xr_sol[0, 2]),
+    "mo",
     markersize=5,
 )
 ax.legend(["Trajectory", "Moon", "Target", "Chaser"], loc="upper right")
-ax.set_xlabel("x [DU]")
-ax.set_ylabel("y [DU]")
+ax.set_xlabel("$x$ [DU]", labelpad=-1)
+ax.set_ylabel("$y$ [DU]")
 ax.zaxis.set_rotate_label(False)
-ax.set_zlabel("z [DU]", rotation=90, labelpad=20)
+ax.set_zlabel("$z$ [DU]", rotation=90, labelpad=30)
 plt.locator_params(axis="x", nbins=4)
 plt.locator_params(axis="y", nbins=4)
 plt.locator_params(axis="z", nbins=4)
@@ -241,18 +337,31 @@ plt.savefig("Halo92.pdf", format="pdf")
 # Plot Chaser Relative
 plt.figure(2)
 ax = plt.axes(projection="3d")
-ax.plot3D(xr_sol[:, 0], xr_sol[:, 1], xr_sol[:, 2], "b", linewidth=2)
-ax.plot3D(0, 0, 0, "ko", markersize=5)
-ax.plot3D(xr_sol[0, 0], xr_sol[0, 1], xr_sol[0, 2], "go", markersize=5)
-ax.plot3D(xr_sol[-1, 0], xr_sol[-1, 1], xr_sol[-1, 2], "ro", markersize=5)
-ax.legend(["Trajectory", "Target", "Initial State", "Final State"], loc="upper right")
-ax.plot_surface(x_cone, z_cone, y_cone, color="r")
-ax.plot_surface(x_sph, y_sph, z_sph1, color="y", alpha=0.2)
-ax.plot_surface(x_sph, y_sph, z_sph2, color="y", alpha=0.2)
-ax.set_xlabel("$\delta x$ [DU]")
-ax.set_ylabel("$\delta y$ [DU]")
+ax.plot3D(
+    xr_sol[:, 0] * l_star,
+    xr_sol[:, 1] * l_star,
+    xr_sol[:, 2] * l_star,
+    "r",
+    linewidth=2,
+)
+ax.plot3D(0, 0, 0, "go", markersize=5)
+ax.plot3D(
+    xr_sol[0, 0] * l_star,
+    xr_sol[0, 1] * l_star,
+    xr_sol[0, 2] * l_star,
+    "mo",
+    markersize=5,
+)
+# ax.plot3D(xr_sol[-1, 0], xr_sol[-1, 1], xr_sol[-1, 2], "ro", markersize=5)
+# ax.plot_surface(x_cone * l_star, z_cone * l_star, y_cone * l_star, color="b", alpha=0.2)
+ax.plot3D([0], [0], [0], linestyle="none", c='y', marker='o', alpha=0.3)
+ax.legend(["Trajectory", "Target", "Chaser", "KOS"], loc="upper right")
+ax.plot_surface(x_sph * l_star, y_sph * l_star, z_sph1 * l_star, color="y", alpha=0.3)
+ax.plot_surface(x_sph * l_star, y_sph * l_star, z_sph2 * l_star, color="y", alpha=0.3)
+ax.set_xlabel("$\delta x$ [m]")
+ax.set_ylabel("$\delta y$ [m]")
 ax.zaxis.set_rotate_label(False)
-ax.set_zlabel("$\delta z$ [DU]", rotation=90, labelpad=20)
+ax.set_zlabel("$\delta z$ [m]", rotation=90, labelpad=20)
 ax.set_xticks([0])
 plt.locator_params(axis="x", nbins=4)
 plt.locator_params(axis="y", nbins=4)
@@ -262,8 +371,6 @@ ax.xaxis.pane.set_edgecolor("black")
 ax.yaxis.pane.set_edgecolor("black")
 ax.zaxis.pane.set_edgecolor("black")
 plt.tick_params(axis="z", which="major", pad=10)
-ax.yaxis.set_major_formatter(mtick.FormatStrFormatter("%.1e"))
-ax.zaxis.set_major_formatter(mtick.FormatStrFormatter("%.1e"))
 ax.xaxis.pane.fill = False
 ax.yaxis.pane.fill = False
 ax.zaxis.pane.fill = False
